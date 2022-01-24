@@ -1,5 +1,6 @@
 # Usage
 - [Selecting a Java distribution](#Selecting-a-Java-distribution)
+  - [Eclipse Temurin](#Eclipse-Temurin)
   - [Adopt](#Adopt)
   - [Zulu](#Zulu)
 - [Installing custom Java package type](#Installing-custom-Java-package-type)
@@ -16,13 +17,26 @@ See [action.yml](../action.yml) for more details on task inputs.
 ## Selecting a Java distribution
 Inputs `java-version` and `distribution` are mandatory and needs to be provided. See [Supported distributions](../README.md#Supported-distributions) for a list of available options.
 
-### Adopt
+### Eclipse Temurin
 ```yaml
 steps:
 - uses: actions/checkout@v2
 - uses: actions/setup-java@v2
   with:
-    distribution: 'adopt'
+    distribution: 'temurin'
+    java-version: '11'
+- run: java -cp java HelloWorldApp
+```
+
+### Adopt
+**NOTE:** Adopt OpenJDK got moved to Eclipse Temurin and won't be updated anymore. It is highly recommended to migrate workflows from `adopt` to `temurin` to keep receiving software and security updates. See more details in the [Good-bye AdoptOpenJDK post](https://blog.adoptopenjdk.net/2021/08/goodbye-adoptopenjdk-hello-adoptium/).
+
+```yaml
+steps:
+- uses: actions/checkout@v2
+- uses: actions/setup-java@v2
+  with:
+    distribution: 'adopt-hotspot'
     java-version: '11'
 - run: java -cp java HelloWorldApp
 ```
@@ -36,6 +50,29 @@ steps:
     distribution: 'zulu'
     java-version: '11'
     java-package: jdk # optional (jdk, jre, jdk+fx or jre+fx) - defaults to jdk
+- run: java -cp java HelloWorldApp
+```
+
+### Liberica
+```yaml
+steps:
+- uses: actions/checkout@v2
+- uses: actions/setup-java@v2
+  with:
+    distribution: 'liberica'
+    java-version: '11'
+    java-package: jdk # optional (jdk, jre, jdk+fx or jre+fx) - defaults to jdk
+- run: java -cp java HelloWorldApp
+```
+
+### Microsoft
+```yaml
+steps:
+- uses: actions/checkout@v2
+- uses: actions/setup-java@v2
+  with:
+    distribution: 'microsoft'
+    java-version: '11'
 - run: java -cp java HelloWorldApp
 ```
 
@@ -91,8 +128,8 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        distribution: [ 'zulu', 'adopt' ]
-        java: [ '8', '11', '13', '15' ]
+        distribution: [ 'zulu', 'temurin' ]
+        java: [ '8', '11' ]
     name: Java ${{ matrix.Java }} (${{ matrix.distribution }}) sample
     steps:
       - uses: actions/checkout@v2
@@ -119,7 +156,7 @@ jobs:
       - name: Setup java
         uses: actions/setup-java@v2
         with:
-          distribution: 'adopt'
+          distribution: 'temurin'
           java-version: ${{ matrix.java }}
       - run: java -cp java HelloWorldApp
 ```
@@ -129,7 +166,6 @@ jobs:
 ```yaml
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
@@ -151,7 +187,7 @@ jobs:
     - name: Set up Apache Maven Central
       uses: actions/setup-java@v2
       with: # running setup-java again overwrites the settings.xml
-        distribution: 'adopt'
+        distribution: 'temurin'
         java-version: '11'
         server-id: maven # Value of the distributionManagement/repository/id field of the pom.xml
         server-username: MAVEN_USERNAME # env variable for username in deploy
@@ -207,7 +243,7 @@ The two `settings.xml` files created from the above example look like the follow
 </settings>
 ```
 
-***NOTE***: The `settings.xml` file is created in the Actions $HOME/.m2 directory. If you have an existing `settings.xml` file at that location, it will be overwritten. See below for using the `settings-path` to change your `settings.xml` file location.
+***NOTE***: The `settings.xml` file is created in the Actions `$HOME/.m2` directory. If you have an existing `settings.xml` file at that location, it will be overwritten. See [below](#apache-maven-with-a-settings-path) for using the `settings-path` to change your `settings.xml` file location.
 
 If you don't want to overwrite the `settings.xml` file, you can set `overwrite-settings: false`
 
@@ -233,6 +269,34 @@ If `gpg-private-key` input is provided, the private key will be written to a fil
 **GPG key should be exported by: `gpg --armor --export-secret-keys YOUR_ID`**
 
 See the help docs on [Publishing a Package](https://help.github.com/en/github/managing-packages-with-github-packages/configuring-apache-maven-for-use-with-github-packages#publishing-a-package) for more information on the `pom.xml` file.
+
+## Apache Maven with a settings path
+
+When using an Actions self-hosted runner with multiple shared runners the default `$HOME` directory can be shared by a number runners at the same time which could overwrite existing settings file. Setting the `settings-path` variable allows you to choose a unique location for your settings file.
+
+```yaml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up JDK 11 for Shared Runner
+      uses: actions/setup-java@v2
+      with:
+        distribution: '<distribution>'
+        java-version: '11'
+        server-id: github # Value of the distributionManagement/repository/id field of the pom.xml
+        settings-path: ${{ github.workspace }} # location for the settings.xml file
+
+    - name: Build with Maven
+      run: mvn -B package --file pom.xml
+
+    - name: Publish to GitHub Packages Apache Maven
+      run: mvn deploy -s $GITHUB_WORKSPACE/settings.xml
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+```
 
 ## Publishing using Gradle
 ```yaml
@@ -264,38 +328,9 @@ jobs:
 
 See the help docs on [Publishing a Package with Gradle](https://help.github.com/en/github/managing-packages-with-github-packages/configuring-gradle-for-use-with-github-packages#example-using-gradle-groovy-for-a-single-package-in-a-repository) for more information on the `build.gradle` configuration file.
 
-## Apache Maven with a settings path
-
-When using an Actions self-hosted runner with multiple shared runners the default `$HOME` directory can be shared by a number runners at the same time which could overwrite existing settings file. Setting the `settings-path` variable allows you to choose a unique location for your settings file.
-
-```yaml
-jobs:
-  build:
-
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up JDK 11 for Shared Runner
-      uses: actions/setup-java@v2
-      with:
-        distribution: '<distribution>'
-        java-version: '11'
-        server-id: github # Value of the distributionManagement/repository/id field of the pom.xml
-        settings-path: ${{ github.workspace }} # location for the settings.xml file
-
-    - name: Build with Maven
-      run: mvn -B package --file pom.xml
-
-    - name: Publish to GitHub Packages Apache Maven
-      run: mvn deploy -s $GITHUB_WORKSPACE/settings.xml
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
-```
-
 ## Hosted Tool Cache
-GitHub Hosted Runners have a tool cache that comes with some Java versions pre-installed. This tool cache helps speed up runs and tool setup by not requiring any new downloads. There is an environment variable called `RUNNER_TOOL_CACHE` on each runner that describes the location of this tools cache and this is where you can find the pre-installed versions of Java. `setup-java` works by taking a specific version of Java in this tool cache and adding it to PATH if the version, architecture and distribution match. 
+GitHub Hosted Runners have a tool cache that comes with some Java versions pre-installed. This tool cache helps speed up runs and tool setup by not requiring any new downloads. There is an environment variable called `RUNNER_TOOL_CACHE` on each runner that describes the location of this tools cache and this is where you can find the pre-installed versions of Java. `setup-java` works by taking a specific version of Java in this tool cache and adding it to PATH if the version, architecture and distribution match.
 
 Currently, LTS versions of Adopt OpenJDK (`adopt`) are cached on the GitHub Hosted Runners.
 
-The tools cache gets updated on a weekly basis. For information regarding locally cached versions of Java on GitHub hosted runners, check out [GitHub Actions Virtual Environments](https://github.com/actions/virtual-environments).  
+The tools cache gets updated on a weekly basis. For information regarding locally cached versions of Java on GitHub hosted runners, check out [GitHub Actions Virtual Environments](https://github.com/actions/virtual-environments).

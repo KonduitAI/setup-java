@@ -1,13 +1,21 @@
-import { AdoptDistribution } from './adopt/installer';
 import { JavaBase } from './base-installer';
 import { JavaInstallerOptions } from './base-models';
 import { LocalDistribution } from './local/installer';
 import { ZuluDistribution } from './zulu/installer';
+import { AdoptDistribution, AdoptImplementation } from './adopt/installer';
+import { TemurinDistribution, TemurinImplementation } from './temurin/installer';
+import { LibericaDistributions } from './liberica/installer';
+import { MicrosoftDistributions } from './microsoft/installer';
 
 enum JavaDistribution {
   Adopt = 'adopt',
+  AdoptHotspot = 'adopt-hotspot',
+  AdoptOpenJ9 = 'adopt-openj9',
+  Temurin = 'temurin',
   Zulu = 'zulu',
-  JdkFile = 'jdkfile'
+  Liberica = 'liberica',
+  JdkFile = 'jdkfile',
+  Microsoft = 'microsoft'
 }
 
 export function getJavaDistribution(
@@ -19,9 +27,18 @@ export function getJavaDistribution(
     case JavaDistribution.JdkFile:
       return new LocalDistribution(installerOptions, jdkFile);
     case JavaDistribution.Adopt:
-      return new AdoptDistribution(installerOptions);
+    case JavaDistribution.AdoptHotspot:
+      return new AdoptDistribution(installerOptions, AdoptImplementation.Hotspot);
+    case JavaDistribution.AdoptOpenJ9:
+      return new AdoptDistribution(installerOptions, AdoptImplementation.OpenJ9);
+    case JavaDistribution.Temurin:
+      return new TemurinDistribution(installerOptions, TemurinImplementation.Hotspot);
     case JavaDistribution.Zulu:
       return new ZuluDistribution(installerOptions);
+    case JavaDistribution.Liberica:
+      return new LibericaDistributions(installerOptions);
+    case JavaDistribution.Microsoft:
+      return new MicrosoftDistributions(installerOptions);
     default:
       return null;
   }
